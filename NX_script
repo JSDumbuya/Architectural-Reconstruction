@@ -1,0 +1,88 @@
+#Based on code presented in class.
+
+import re
+from pathlib import Path
+import networkx as nx
+import matplotlib.pyplot as plt
+from pyvis.network import Network
+
+
+def module_name_from_file_path(full_path):
+    file_name = full_path.replace("/__init__.py", "").replace("/", ".").replace(".py", "")
+    return file_name
+
+
+def import_from_line(line):
+    match = re.search(r"^(?:from|import) (\S+)", line)
+    return match.group(1) if match else None
+    
+def imports_from_file(file):
+    with open(file) as f:
+        return [imp for line in f if (imp := import_from_line(line))]
+    
+
+def relevant_module(module_name):
+
+  if "test" in module_name:
+    return False
+  
+  if module_name.startswith("zeeguu"):
+    return True
+
+
+  return False
+
+
+def dependencies_digraph(code_root_folder):
+    files = Path(code_root_folder).rglob("*.py")
+
+    G = nx.DiGraph()
+
+    for file in files:
+        file_path = str(file)
+
+        source_module = module_name_from_file_path(file_path)
+        if not relevant_module(source_module):
+          continue
+
+        if source_module not in G.nodes:
+            G.add_node(source_module)
+
+        for target_module in imports_from_file(file_path):
+
+            if relevant_module(target_module):
+              G.add_edge(source_module, target_module)
+
+
+    return G
+
+
+G = dependencies_digraph("zeeguu")
+
+#PageRank with networkx
+
+pagerankG = nx.pagerank(G)
+
+#Visualisation with Pyvis
+
+def createVisualization(Graph, pagerank):
+
+    net = Network()
+
+
+    for node, rank in pagerank.items():
+       
+        net.add_node(node, size=rank * 1000, label=node)
+
+
+    for edge in Graph.edges():
+        net.add_edge(*edge)
+
+    net.show("networkNew.html")
+
+
+createVisualization(G, pagerankG)
+
+
+
+
